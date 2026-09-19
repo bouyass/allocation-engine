@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AllocationEngine.Application/AllocationEngine.Application.csproj" />
+    <Project Path="src/AllocationEngine.Domain/AllocationEngine.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AllocationEngine.Application.Tests/AllocationEngine.Application.Tests.csproj" />
+  </Folder>
+</Solution>
