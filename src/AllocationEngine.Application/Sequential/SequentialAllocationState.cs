@@ -96,6 +96,70 @@ public sealed class SequentialAllocationState
         return hold;
     }
 
+    public void ConfirmHold(HoldId holdId, DateTimeOffset now)
+    {
+        if (!_holds.TryGetValue(holdId, out var hold))
+        {
+            throw new KeyNotFoundException($"Hold with id {holdId} not found.");
+        }
+
+        if (!_resources.TryGetValue(hold.ResourceId, out var resource))
+        {
+            throw new KeyNotFoundException($"Resource with id {hold.ResourceId} not found.");
+        }
+
+        if (hold.Status == HoldStatus.Confirmed)
+        {
+            return;
+        }
+
+        if (hold.Status == HoldStatus.Held)
+        {
+            hold.Confirm();
+            resource.ConfirmReservation(hold.Quantity, now);
+            return;
+        }
+
+        throw new InvalidOperationException($"Hold with id {holdId} is not in a held state and cannot be confirmed.");
+    }
+
+    public void ReleaseHold(HoldId holdId, DateTimeOffset now)
+    {
+        if (!_holds.TryGetValue(holdId, out var hold))
+        {
+            throw new KeyNotFoundException($"Hold with id {holdId} not found.");
+        }
+
+        if (!_resources.TryGetValue(hold.ResourceId, out var resource))
+        {
+            throw new KeyNotFoundException($"Resource with id {hold.ResourceId} not found.");
+        }
+
+        if (hold.Status == HoldStatus.Released || hold.Status == HoldStatus.Expired)
+        {
+            return;
+        }
+
+        hold.Release();
+        resource.ReleaseReservation(hold.Quantity, now);
+    }
+
+    public void ReclaimExpiredHolds(DateTimeOffset now)
+    {
+        var expiredHolds = _holds.Values.Where(h => h.IsReclaimable(now)).ToList();
+
+        foreach (var hold in expiredHolds)
+        {
+            if (!_resources.TryGetValue(hold.ResourceId, out var resource))
+            {
+                throw new KeyNotFoundException($"Resource with id {hold.ResourceId} not found.");
+            }
+
+            hold.Reclaim(now);
+            resource.ReleaseReservation(hold.Quantity, now);
+        }
+    }
+
     private (Quantity HeldQuantity, int ActiveHoldCount) GetOwnerUsage(
     ResourceId resourceId,
     OwnerId ownerId)
@@ -112,5 +176,6 @@ public sealed class SequentialAllocationState
 
         return (heldQuantity, activeHoldCount);
     }
+
 }
 
