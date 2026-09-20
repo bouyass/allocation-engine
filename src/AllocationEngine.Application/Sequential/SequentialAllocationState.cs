@@ -1,0 +1,116 @@
+using AllocationEngine.Domain.Holds;
+using AllocationEngine.Domain.Policies;
+using AllocationEngine.Domain.Resources;
+using AllocationEngine.Domain.ValueObjects;
+
+public sealed class SequentialAllocationState
+{
+    private readonly Dictionary<ResourceId, Resource> _resources = [];
+    private readonly Dictionary<HoldId, Hold> _holds = [];
+
+    public void AddResource(Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(resource, nameof(resource));
+
+        if (!_resources.TryAdd(resource.Id, resource))
+        {
+            throw new InvalidOperationException($"Resource with id {resource.Id} already exists.");
+        }
+    }
+
+    public Resource GetResource(ResourceId resourceId)
+    {
+
+        if (!_resources.TryGetValue(resourceId, out var resource))
+        {
+            throw new KeyNotFoundException($"Resource with id {resourceId} not found.");
+        }
+
+        return resource;
+    }
+
+    internal void AddHold(Hold hold)
+    {
+        ArgumentNullException.ThrowIfNull(hold, nameof(hold));
+
+        if (!_holds.TryAdd(hold.Id, hold))
+        {
+            throw new InvalidOperationException($"Hold with id {hold.Id} already exists.");
+        }
+    }
+
+    public Hold GetHold(HoldId holdId)
+    {
+
+        if (!_holds.TryGetValue(holdId, out var hold))
+        {
+            throw new KeyNotFoundException($"Hold with id {holdId} not found.");
+        }
+
+        return hold;
+    }
+
+    public Hold Acquire(
+    ResourceId resourceId,
+    HoldId holdId,
+    OwnerId ownerId,
+    Quantity quantity,
+    HoldTtl? requestedTtl,
+    DateTimeOffset now)
+    {
+        if (!_resources.TryGetValue(resourceId, out var resource))
+        {
+            throw new KeyNotFoundException($"Resource with id {resourceId} not found.");
+        }
+
+        var (heldQuantity, activeHoldCount) = GetOwnerUsage(resourceId, ownerId);
+
+        var policyResult = PolicyEvaluator.EvaluateAcquire(
+            resource.Policies,
+            quantity,
+            heldQuantity,
+            activeHoldCount,
+            requestedTtl);
+
+        if (!policyResult.IsAllowed)
+        {
+            throw new InvalidOperationException($"Acquire request rejected: {policyResult.Rejection}");
+        }
+
+        var effectiveTtl = PolicyEvaluator.ResolveTtl(
+            resource.Policies.Hold,
+            requestedTtl);
+
+        resource.Reserve(quantity, now);
+
+        Hold hold = new Hold(
+            holdId,
+            resourceId,
+            ownerId,
+            quantity,
+            now,
+            effectiveTtl.GetExpirationFrom(now),
+            resource.PolicyVersion);
+
+        AddHold(hold);
+        return hold;
+    }
+
+    private (Quantity HeldQuantity, int ActiveHoldCount) GetOwnerUsage(
+    ResourceId resourceId,
+    OwnerId ownerId)
+    {
+        if (!_resources.TryGetValue(resourceId, out var resource))
+        {
+            throw new KeyNotFoundException($"Resource with id {resourceId} not found.");
+        }
+
+        var ownerHolds = _holds.Values.Where(h => h.ResourceId == resourceId && h.OwnerId == ownerId && h.Status == HoldStatus.Held);
+
+        var heldQuantity = ownerHolds.Aggregate(Quantity.Zero, (sum, hold) => sum + hold.Quantity);
+        var activeHoldCount = ownerHolds.Count();
+
+        return (heldQuantity, activeHoldCount);
+    }
+}
+

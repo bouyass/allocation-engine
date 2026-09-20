@@ -1,4 +1,5 @@
 using AllocationEngine.Domain.Errors;
+using AllocationEngine.Domain.Policies;
 using AllocationEngine.Domain.ValueObjects;
 
 namespace AllocationEngine.Domain.Resources;
@@ -18,6 +19,8 @@ public sealed class Resource
 
     public ResourceStatus Status { get; private set; }
 
+    public PolicySet Policies { get; private set; }
+
     public PolicyVersion PolicyVersion { get; private set; }
 
     public DateTimeOffset CreatedAt { get; }
@@ -28,11 +31,13 @@ public sealed class Resource
         ResourceId id,
         Quantity capacity,
         PolicyVersion policyVersion,
+        PolicySet policies,
         DateTimeOffset createdAt)
     {
         Id = id;
         Capacity = capacity;
         PolicyVersion = policyVersion;
+        Policies = policies;
 
         HeldQuantity = Quantity.Zero;
         AllocatedQuantity = Quantity.Zero;

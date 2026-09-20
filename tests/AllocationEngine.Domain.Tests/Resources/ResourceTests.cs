@@ -1,4 +1,5 @@
 using AllocationEngine.Domain.Errors;
+using AllocationEngine.Domain.Policies;
 using AllocationEngine.Domain.Resources;
 using AllocationEngine.Domain.ValueObjects;
 
@@ -16,11 +17,17 @@ public class ResourceTests
             2026, 9, 20,
             10, 0, 0,
             TimeSpan.Zero);
+        var policies = new PolicySet(
+            version,
+            new RequestPolicy(new Quantity(3)),
+            new OwnerPolicy(new Quantity(10), 2),
+            new HoldPolicy(new HoldTtl(TimeSpan.FromMinutes(1)), new HoldTtl(TimeSpan.FromSeconds(30)), new HoldTtl(TimeSpan.FromMinutes(5))));
 
         var resource = new Resource(
             id,
             capacity,
             version,
+            policies,
             now);
 
         Assert.Equal(id, resource.Id);
@@ -263,10 +270,18 @@ public class ResourceTests
 
     private static Resource CreateResource()
     {
+        var policies = new PolicySet(
+            PolicyVersion.Initial,
+            new RequestPolicy(new Quantity(3)),
+            new OwnerPolicy(new Quantity(10), 2),
+            new HoldPolicy(new HoldTtl(TimeSpan.FromMinutes(1)), new HoldTtl(TimeSpan.FromSeconds(30)), new HoldTtl(TimeSpan.FromMinutes(5)))
+        );
+
         return new Resource(
             new ResourceId(Guid.NewGuid()),
             new Quantity(100),
             PolicyVersion.Initial,
+            policies,
             new DateTimeOffset(
                 2026, 9, 20,
                 10, 0, 0,
