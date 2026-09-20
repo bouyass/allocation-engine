@@ -636,6 +636,342 @@ public class SequentialAllocationStateTests
         Assert.Equal(new Quantity(100), resource.AvailableQuantity);
     }
 
+    [Fact]
+    public void Acquire_WhenReclaimableCapacityIsSufficient_ReclaimsAndAcquires()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var oldHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(10),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var later = now.AddMinutes(2);
+
+        var newHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-2"),
+            new Quantity(5),
+            null,
+            later);
+
+        Assert.Equal(HoldStatus.Expired, oldHold.Status);
+        Assert.Equal(HoldStatus.Held, newHold.Status);
+
+        Assert.Equal(new Quantity(10), resource.Capacity);
+        Assert.Equal(new Quantity(5), resource.HeldQuantity);
+        Assert.Equal(Quantity.Zero, resource.AllocatedQuantity);
+        Assert.Equal(new Quantity(5), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_WhenCapacityIsAlreadySufficient_DoesNotReclaimExpiredHold()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var expiredHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(2),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var later = now.AddMinutes(2);
+
+        var newHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-2"),
+            new Quantity(5),
+            null,
+            later);
+
+        Assert.Equal(HoldStatus.Held, expiredHold.Status);
+        Assert.Equal(HoldStatus.Held, newHold.Status);
+
+        Assert.Equal(new Quantity(7), resource.HeldQuantity);
+        Assert.Equal(new Quantity(3), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_WhenMultipleExpiredHoldsAreRequired_ReclaimsEnoughCapacity()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var firstExpiredHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(2),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var secondExpiredHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-2"),
+            new Quantity(4),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var activeHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-3"),
+            new Quantity(4),
+            new HoldTtl(TimeSpan.FromMinutes(10)),
+            now);
+
+        var later = now.AddMinutes(2);
+
+        // Available = 0
+        // Need 5
+        // Reclaim 2 + 4 = 6
+        // Reserve 5
+        // Available = 1
+        var newHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-4"),
+            new Quantity(5),
+            null,
+            later);
+
+        Assert.Equal(HoldStatus.Expired, firstExpiredHold.Status);
+        Assert.Equal(HoldStatus.Expired, secondExpiredHold.Status);
+        Assert.Equal(HoldStatus.Held, activeHold.Status);
+        Assert.Equal(HoldStatus.Held, newHold.Status);
+
+        Assert.Equal(new Quantity(9), resource.HeldQuantity);
+        Assert.Equal(Quantity.Zero, resource.AllocatedQuantity);
+        Assert.Equal(new Quantity(1), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_WhenExpiredHoldIsLargerThanMissingQuantity_ReclaimsWholeHold()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var expiredHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(6),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var activeHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-2"),
+            new Quantity(4),
+            new HoldTtl(TimeSpan.FromMinutes(10)),
+            now);
+
+        var later = now.AddMinutes(2);
+
+        // Missing = 3, but the expired Hold owns 6.
+        // Whole-Hold reclaim => all 6 are released.
+        var newHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-3"),
+            new Quantity(3),
+            null,
+            later);
+
+        Assert.Equal(HoldStatus.Expired, expiredHold.Status);
+        Assert.Equal(HoldStatus.Held, activeHold.Status);
+        Assert.Equal(HoldStatus.Held, newHold.Status);
+
+        Assert.Equal(new Quantity(7), resource.HeldQuantity);
+        Assert.Equal(new Quantity(3), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_WhenReclaimableCapacityIsInsufficient_DoesNotReclaimAnything()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var expiredHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(3),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var activeHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-2"),
+            new Quantity(7),
+            new HoldTtl(TimeSpan.FromMinutes(10)),
+            now);
+
+        var later = now.AddMinutes(2);
+
+        Assert.Throws<InsufficientCapacityException>(() =>
+            state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                new OwnerId("owner-3"),
+                new Quantity(5),
+                null,
+                later));
+
+        // Acquire failed => opportunistic reclaim must not mutate state.
+        Assert.Equal(HoldStatus.Held, expiredHold.Status);
+        Assert.Equal(HoldStatus.Held, activeHold.Status);
+
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+        Assert.Equal(Quantity.Zero, resource.AllocatedQuantity);
+        Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_DoesNotReclaimExpiredHoldFromAnotherResource()
+    {
+        var state = new SequentialAllocationState();
+
+        var resourceA = CreateResource(capacity: 10);
+        var resourceB = CreateResource(capacity: 10);
+
+        state.AddResource(resourceA);
+        state.AddResource(resourceB);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var holdA = state.Acquire(
+            resourceA.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-a"),
+            new Quantity(10),
+            new HoldTtl(TimeSpan.FromMinutes(10)),
+            now);
+
+        var expiredHoldB = state.Acquire(
+            resourceB.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-b"),
+            new Quantity(10),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var later = now.AddMinutes(2);
+
+        Assert.Throws<InsufficientCapacityException>(() =>
+            state.Acquire(
+                resourceA.Id,
+                new HoldId(Guid.NewGuid()),
+                new OwnerId("owner-c"),
+                new Quantity(1),
+                null,
+                later));
+
+        Assert.Equal(HoldStatus.Held, holdA.Status);
+
+        // Even though B is reclaimable, an Acquire on A must not touch it.
+        Assert.Equal(HoldStatus.Held, expiredHoldB.Status);
+
+        Assert.Equal(Quantity.Zero, resourceA.AvailableQuantity);
+        Assert.Equal(Quantity.Zero, resourceB.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_DoesNotReclaimHoldThatHasNotExpired()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var activeHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(10),
+            new HoldTtl(TimeSpan.FromMinutes(10)),
+            now);
+
+        var later = now.AddMinutes(2);
+
+        Assert.Throws<InsufficientCapacityException>(() =>
+            state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                new OwnerId("owner-2"),
+                new Quantity(1),
+                null,
+                later));
+
+        Assert.Equal(HoldStatus.Held, activeHold.Status);
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+        Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_DoesNotReclaimConfirmedHold()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var confirmedHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(10),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        state.ConfirmHold(confirmedHold.Id, now);
+
+        var later = now.AddMinutes(2);
+
+        Assert.Throws<InsufficientCapacityException>(() =>
+            state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                new OwnerId("owner-2"),
+                new Quantity(1),
+                null,
+                later));
+
+        Assert.Equal(HoldStatus.Confirmed, confirmedHold.Status);
+        Assert.Equal(Quantity.Zero, resource.HeldQuantity);
+        Assert.Equal(new Quantity(10), resource.AllocatedQuantity);
+        Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
+    }
 
     private static Resource CreateResource(
         long capacity = 100,

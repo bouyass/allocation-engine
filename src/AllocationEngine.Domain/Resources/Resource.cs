@@ -228,7 +228,7 @@ public sealed class Resource
                 "Quantity to reclaim exceeds held quantity.");
         }
 
-        AllocatedQuantity -= quantity;
+        HeldQuantity -= quantity;
         UpdatedAt = now;
     }
 

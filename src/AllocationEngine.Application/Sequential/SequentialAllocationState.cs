@@ -1,3 +1,4 @@
+using AllocationEngine.Domain.Errors;
 using AllocationEngine.Domain.Holds;
 using AllocationEngine.Domain.Policies;
 using AllocationEngine.Domain.Resources;
@@ -81,6 +82,18 @@ public sealed class SequentialAllocationState
             resource.Policies.Hold,
             requestedTtl);
 
+        if (quantity > resource.AvailableQuantity)
+        {
+            // Attempt to reclaim holds if the requested quantity exceeds available quantity
+            var quantityMissing = quantity - resource.AvailableQuantity;
+            ReclaimCapacityForAcquire(resourceId, ref quantityMissing, now);
+
+            if (quantityMissing > Quantity.Zero)
+            {
+                throw new InsufficientCapacityException(quantity, resource.AvailableQuantity);
+            }
+        }
+
         resource.Reserve(quantity, now);
 
         Hold hold = new Hold(
@@ -157,6 +170,39 @@ public sealed class SequentialAllocationState
 
             hold.Reclaim(now);
             resource.ReleaseReservation(hold.Quantity, now);
+        }
+    }
+
+    private void ReclaimCapacityForAcquire(ResourceId resourceId, ref Quantity quantityMissing, DateTimeOffset now)
+    {
+        var reclaimableHolds = _holds.Values
+            .Where(h => h.ResourceId == resourceId && h.IsReclaimable(now))
+            .ToList();
+
+        var reclaimableQuantity = reclaimableHolds.Aggregate(Quantity.Zero, (sum, hold) => sum + hold.Quantity);
+
+        if (reclaimableQuantity < quantityMissing)
+        {
+            return;
+        }
+
+        foreach (var hold in reclaimableHolds)
+        {
+            if (!_resources.TryGetValue(hold.ResourceId, out var resource))
+            {
+                throw new KeyNotFoundException($"Resource with id {hold.ResourceId} not found.");
+            }
+
+            hold.Reclaim(now);
+            resource.ReclaimReservation(hold.Quantity, now);
+
+            if (hold.Quantity >= quantityMissing)
+            {
+                quantityMissing = Quantity.Zero;
+                break;
+            }
+
+            quantityMissing -= hold.Quantity;
         }
     }
 
