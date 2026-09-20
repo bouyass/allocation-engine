@@ -126,4 +126,92 @@ public sealed class Resource
         Capacity = newCapacity;
         UpdatedAt = now;
     }
+
+    public void Reserve(
+        Quantity quantity,
+        DateTimeOffset now)
+    {
+        if(Status != ResourceStatus.Active) {
+            throw new InvalidResourceTransitionException(
+                Status, 
+                nameof(Reserve)
+            );
+        }
+
+        if(quantity <= Quantity.Zero) {
+            throw new ArgumentOutOfRangeException(
+                nameof(quantity), 
+                "Quantity to reserve must be greater than zero."
+            );
+        }
+
+        if(quantity > AvailableQuantity) {
+            throw new InsufficientCapacityException(
+                quantity, 
+                AvailableQuantity
+            );
+        }
+
+        HeldQuantity += quantity;
+        UpdatedAt = now;
+    } 
+
+    public void ConfirmReservation(
+        Quantity quantity,
+        DateTimeOffset now)
+    {
+        EnsurePositiveQuantity(quantity, nameof(quantity));
+
+        if(quantity > HeldQuantity) {
+            throw new InvalidOperationException(
+                "Quantity to confirm exceeds held quantity."
+            );
+        }
+
+        HeldQuantity -= quantity;
+        AllocatedQuantity += quantity;
+        UpdatedAt = now;
+    }
+
+    public void ReleaseReservation(
+        Quantity quantity,
+        DateTimeOffset now)
+    {
+        EnsurePositiveQuantity(quantity, nameof(quantity));
+
+        if(quantity > HeldQuantity) {
+            throw new InvalidOperationException(
+                "Quantity to release exceeds held quantity."
+            );
+        }
+
+        HeldQuantity -= quantity;
+        UpdatedAt = now;
+    }
+
+    public void ReclaimReservation(
+        Quantity quantity,
+        DateTimeOffset now)
+    {
+        EnsurePositiveQuantity(quantity, nameof(quantity));
+
+        if(quantity > HeldQuantity) {
+            throw new InvalidOperationException(
+                "Quantity to reclaim exceeds held quantity."
+            );
+        }
+
+        AllocatedQuantity -= quantity;
+        UpdatedAt = now;
+    }
+
+    private void EnsurePositiveQuantity(Quantity quantity, string v)
+    {
+        if(quantity <= Quantity.Zero) {
+            throw new ArgumentOutOfRangeException(
+                v, 
+                "Quantity must be greater than zero."
+            );
+        }
+    }
 }
