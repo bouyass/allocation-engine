@@ -5,6 +5,7 @@ namespace AllocationEngine.Domain.Errors;
 public sealed class InsufficientCapacityException : Exception
 {
     public Quantity Requested { get; }
+
     public Quantity Available { get; }
 
     public InsufficientCapacityException(

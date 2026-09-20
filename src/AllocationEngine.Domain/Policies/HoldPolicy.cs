@@ -16,14 +16,18 @@ public sealed record HoldPolicy
         HoldTtl maxTtl)
     {
         if (minTtl > maxTtl)
+        {
             throw new ArgumentException(
                 "Minimum TTL cannot exceed maximum TTL.");
+        }
 
         if (defaultTtl < minTtl ||
             defaultTtl > maxTtl)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(defaultTtl),
                 "Default TTL must be within the allowed TTL range.");
+        }
 
         DefaultTtl = defaultTtl;
         MinTtl = minTtl;

@@ -9,19 +9,25 @@ public readonly record struct PolicyVersion : IComparable<PolicyVersion>
     public PolicyVersion(long value)
     {
         if (value <= 0)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(value),
                 value,
                 "PolicyVersion must be greater than zero.");
+        }
 
         Value = value;
     }
 
     public PolicyVersion Next()
-        => new(checked(Value + 1));
+    {
+        return new(checked(Value + 1));
+    }
 
     public int CompareTo(PolicyVersion other)
-        => Value.CompareTo(other.Value);
+    {
+        return Value.CompareTo(other.Value);
+    }
 
     public static bool operator >(PolicyVersion a, PolicyVersion b)
         => a.Value > b.Value;
@@ -36,5 +42,7 @@ public readonly record struct PolicyVersion : IComparable<PolicyVersion>
         => a.Value <= b.Value;
 
     public override string ToString()
-        => Value.ToString();
+    {
+        return Value.ToString();
+    }
 }

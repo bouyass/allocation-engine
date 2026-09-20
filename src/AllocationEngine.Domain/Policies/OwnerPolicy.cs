@@ -13,14 +13,18 @@ public sealed record OwnerPolicy
         int? maxActiveHolds = null)
     {
         if (maxHeldQuantity == Quantity.Zero)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(maxHeldQuantity),
                 "Maximum held quantity must be greater than zero.");
+        }
 
         if (maxActiveHolds <= 0)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(maxActiveHolds),
                 "Maximum active holds must be greater than zero.");
+        }
 
         MaxHeldQuantity = maxHeldQuantity;
         MaxActiveHolds = maxActiveHolds;

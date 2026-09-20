@@ -7,19 +7,25 @@ public readonly record struct HoldTtl : IComparable<HoldTtl>
     public HoldTtl(TimeSpan value)
     {
         if (value <= TimeSpan.Zero)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(value),
                 value,
                 "Hold TTL must be greater than zero.");
+        }
 
         Value = value;
     }
 
     public DateTimeOffset GetExpirationFrom(DateTimeOffset createdAt)
-        => createdAt + Value;
+    {
+        return createdAt + Value;
+    }
 
     public int CompareTo(HoldTtl other)
-        => Value.CompareTo(other.Value);
+    {
+        return Value.CompareTo(other.Value);
+    }
 
     public static bool operator <(HoldTtl a, HoldTtl b)
         => a.Value < b.Value;
@@ -34,5 +40,7 @@ public readonly record struct HoldTtl : IComparable<HoldTtl>
         => a.Value >= b.Value;
 
     public override string ToString()
-        => Value.ToString();
+    {
+        return Value.ToString();
+    }
 }

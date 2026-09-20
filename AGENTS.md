@@ -1,3 +1,6 @@
+# MAIN RULE
+NEVER AND EVER DO SOMEHTING NOT EXPLICITLY ASKED AND REQUESTED
+
 # Allocation Engine — Agent Instructions
 
 ## Knowledge base

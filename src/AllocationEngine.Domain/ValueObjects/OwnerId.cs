@@ -11,14 +11,18 @@ public readonly record struct OwnerId
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
         if (value.Length > MaxLength)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(value),
                 value.Length,
                 $"OwnerId cannot exceed {MaxLength} characters.");
+        }
 
         Value = value;
     }
 
     public override string ToString()
-        => Value;
+    {
+        return Value;
+    }
 }

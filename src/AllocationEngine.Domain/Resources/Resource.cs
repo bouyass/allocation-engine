@@ -46,12 +46,16 @@ public sealed class Resource
     public void Pause(DateTimeOffset now)
     {
         if (Status == ResourceStatus.Closed)
+        {
             throw new InvalidResourceTransitionException(
                 Status,
                 nameof(Pause));
+        }
 
         if (Status == ResourceStatus.Paused)
+        {
             return;
+        }
 
         Status = ResourceStatus.Paused;
         UpdatedAt = now;
@@ -60,12 +64,16 @@ public sealed class Resource
     public void Resume(DateTimeOffset now)
     {
         if (Status == ResourceStatus.Closed)
+        {
             throw new InvalidResourceTransitionException(
                 Status,
                 nameof(Resume));
+        }
 
         if (Status == ResourceStatus.Active)
+        {
             return;
+        }
 
         Status = ResourceStatus.Active;
         UpdatedAt = now;
@@ -74,54 +82,68 @@ public sealed class Resource
     public void Close(DateTimeOffset now)
     {
         if (Status == ResourceStatus.Closed)
+        {
             return;
+        }
 
         Status = ResourceStatus.Closed;
         UpdatedAt = now;
     }
 
     public void AddCapacity(
-    Quantity quantity,
-    DateTimeOffset now)
+        Quantity quantity,
+        DateTimeOffset now)
     {
         if (Status == ResourceStatus.Closed)
+        {
             throw new InvalidResourceTransitionException(
                 Status,
                 nameof(AddCapacity));
+        }
 
         if (quantity == Quantity.Zero)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(quantity),
                 "Quantity to add must be greater than zero.");
+        }
 
         Capacity += quantity;
         UpdatedAt = now;
     }
 
     public void RemoveCapacity(
-    Quantity quantity,
-    DateTimeOffset now)
+        Quantity quantity,
+        DateTimeOffset now)
     {
         if (Status == ResourceStatus.Closed)
+        {
             throw new InvalidResourceTransitionException(
                 Status,
                 nameof(RemoveCapacity));
+        }
 
         if (quantity == Quantity.Zero)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(quantity),
                 "Quantity to remove must be greater than zero.");
+        }
 
         var committedQuantity =
             HeldQuantity + AllocatedQuantity;
 
         if (quantity > Capacity)
+        {
             throw new CapacityBelowCommittedException();
+        }
 
         var newCapacity = Capacity - quantity;
 
         if (newCapacity < committedQuantity)
+        {
             throw new CapacityBelowCommittedException();
+        }
 
         Capacity = newCapacity;
         UpdatedAt = now;
@@ -131,30 +153,30 @@ public sealed class Resource
         Quantity quantity,
         DateTimeOffset now)
     {
-        if(Status != ResourceStatus.Active) {
+        if (Status != ResourceStatus.Active)
+        {
             throw new InvalidResourceTransitionException(
-                Status, 
-                nameof(Reserve)
-            );
+                Status,
+                nameof(Reserve));
         }
 
-        if(quantity <= Quantity.Zero) {
+        if (quantity <= Quantity.Zero)
+        {
             throw new ArgumentOutOfRangeException(
-                nameof(quantity), 
-                "Quantity to reserve must be greater than zero."
-            );
+                nameof(quantity),
+                "Quantity to reserve must be greater than zero.");
         }
 
-        if(quantity > AvailableQuantity) {
+        if (quantity > AvailableQuantity)
+        {
             throw new InsufficientCapacityException(
-                quantity, 
-                AvailableQuantity
-            );
+                quantity,
+                AvailableQuantity);
         }
 
         HeldQuantity += quantity;
         UpdatedAt = now;
-    } 
+    }
 
     public void ConfirmReservation(
         Quantity quantity,
@@ -162,10 +184,10 @@ public sealed class Resource
     {
         EnsurePositiveQuantity(quantity, nameof(quantity));
 
-        if(quantity > HeldQuantity) {
+        if (quantity > HeldQuantity)
+        {
             throw new InvalidOperationException(
-                "Quantity to confirm exceeds held quantity."
-            );
+                "Quantity to confirm exceeds held quantity.");
         }
 
         HeldQuantity -= quantity;
@@ -179,10 +201,10 @@ public sealed class Resource
     {
         EnsurePositiveQuantity(quantity, nameof(quantity));
 
-        if(quantity > HeldQuantity) {
+        if (quantity > HeldQuantity)
+        {
             throw new InvalidOperationException(
-                "Quantity to release exceeds held quantity."
-            );
+                "Quantity to release exceeds held quantity.");
         }
 
         HeldQuantity -= quantity;
@@ -195,23 +217,25 @@ public sealed class Resource
     {
         EnsurePositiveQuantity(quantity, nameof(quantity));
 
-        if(quantity > HeldQuantity) {
+        if (quantity > HeldQuantity)
+        {
             throw new InvalidOperationException(
-                "Quantity to reclaim exceeds held quantity."
-            );
+                "Quantity to reclaim exceeds held quantity.");
         }
 
         AllocatedQuantity -= quantity;
         UpdatedAt = now;
     }
 
-    private void EnsurePositiveQuantity(Quantity quantity, string v)
+    private void EnsurePositiveQuantity(
+        Quantity quantity,
+        string parameterName)
     {
-        if(quantity <= Quantity.Zero) {
+        if (quantity <= Quantity.Zero)
+        {
             throw new ArgumentOutOfRangeException(
-                v, 
-                "Quantity must be greater than zero."
-            );
+                parameterName,
+                "Quantity must be greater than zero.");
         }
     }
 }

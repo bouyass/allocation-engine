@@ -17,5 +17,7 @@ public readonly record struct ResourceId
     }
 
     public override string ToString()
-        => Value.ToString();
+    {
+        return Value.ToString();
+    }
 }

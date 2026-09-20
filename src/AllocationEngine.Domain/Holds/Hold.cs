@@ -30,14 +30,18 @@ public sealed class Hold
         PolicyVersion policyVersion)
     {
         if (quantity == Quantity.Zero)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(quantity),
                 "Hold quantity must be greater than zero.");
+        }
 
         if (expiresAt <= createdAt)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(expiresAt),
                 "Hold expiration must be after its creation.");
+        }
 
         Id = id;
         ResourceId = resourceId;
@@ -53,8 +57,10 @@ public sealed class Hold
     }
 
     public bool IsReclaimable(DateTimeOffset now)
-    => Status == HoldStatus.Held
-       && now >= ExpiresAt;
+    {
+        return Status == HoldStatus.Held
+           && now >= ExpiresAt;
+    }
 
     public void Confirm()
     {
@@ -96,7 +102,7 @@ public sealed class Hold
 
     public void Reclaim(DateTimeOffset now)
     {
-        switch(Status)
+        switch (Status)
         {
             case HoldStatus.Expired:
             case HoldStatus.Confirmed:
@@ -104,12 +110,13 @@ public sealed class Hold
                 return;
 
             case HoldStatus.Held:
-                if(now < ExpiresAt)
+                if (now < ExpiresAt)
+                {
                     throw new InvalidOperationException("Hold cannot be reclaimed because it has not yet expired.");
+                }
 
                 Status = HoldStatus.Expired;
                 break;
-
         }
     }
 }

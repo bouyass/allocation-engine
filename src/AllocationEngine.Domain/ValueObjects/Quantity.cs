@@ -9,16 +9,20 @@ public readonly record struct Quantity : IComparable<Quantity>
     public Quantity(long value)
     {
         if (value < 0)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(value),
                 value,
                 "Quantity cannot be negative.");
+        }
 
         Value = value;
     }
 
     public int CompareTo(Quantity other)
-        => Value.CompareTo(other.Value);
+    {
+        return Value.CompareTo(other.Value);
+    }
 
     public static Quantity operator +(Quantity a, Quantity b)
         => new(checked(a.Value + b.Value));
@@ -26,8 +30,10 @@ public readonly record struct Quantity : IComparable<Quantity>
     public static Quantity operator -(Quantity a, Quantity b)
     {
         if (a < b)
+        {
             throw new InvalidOperationException(
                 "Resulting quantity cannot be negative.");
+        }
 
         return new Quantity(a.Value - b.Value);
     }
@@ -45,5 +51,7 @@ public readonly record struct Quantity : IComparable<Quantity>
         => a.Value <= b.Value;
 
     public override string ToString()
-        => Value.ToString();
+    {
+        return Value.ToString();
+    }
 }
