@@ -9,6 +9,8 @@ public sealed class SequentialAllocationState
     private readonly Dictionary<ResourceId, Resource> _resources = [];
     private readonly Dictionary<HoldId, Hold> _holds = [];
 
+    private readonly Dictionary<IdempotencyKey, AcquireIdempotencyRecord> _acquireOperations = [];
+
     public void AddResource(Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource, nameof(resource));
@@ -56,9 +58,31 @@ public sealed class SequentialAllocationState
     HoldId holdId,
     OwnerId ownerId,
     Quantity quantity,
+    IdempotencyKey idempotencyKey,
     HoldTtl? requestedTtl,
     DateTimeOffset now)
     {
+
+        var fingerprint = new AcquireFingerprint(
+        resourceId,
+        ownerId,
+        quantity,
+        requestedTtl);
+
+
+        // idempotency 
+        if (_acquireOperations.TryGetValue(idempotencyKey, out var existingRecord))
+        {
+            if (existingRecord.Fingerprint != fingerprint)
+            {
+                throw new InvalidOperationException(
+                    $"Idempotency key '{idempotencyKey}' was already used with a different request."
+                );
+            }
+
+            return GetHold(existingRecord.HoldId);
+        }
+
         if (!_resources.TryGetValue(resourceId, out var resource))
         {
             throw new KeyNotFoundException($"Resource with id {resourceId} not found.");
@@ -106,6 +130,8 @@ public sealed class SequentialAllocationState
             resource.PolicyVersion);
 
         AddHold(hold);
+
+        _acquireOperations.Add(idempotencyKey, new(idempotencyKey, fingerprint, holdId));
         return hold;
     }
 

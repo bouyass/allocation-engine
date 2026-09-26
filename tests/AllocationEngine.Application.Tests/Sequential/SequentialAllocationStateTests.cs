@@ -105,6 +105,7 @@ public class SequentialAllocationStateTests
         new HoldId(Guid.NewGuid()),
         owner,
         new Quantity(1),
+        NewIdempotencyKey(),
         null,
         now);
 
@@ -114,6 +115,7 @@ public class SequentialAllocationStateTests
         new HoldId(Guid.NewGuid()),
         owner,
         new Quantity(1),
+        NewIdempotencyKey(),
         null,
         now);
 
@@ -124,6 +126,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(1),
+            NewIdempotencyKey(),
             null,
             now);
         });
@@ -149,6 +152,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(10)),
             now);
 
@@ -181,6 +185,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -210,6 +215,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(10),
+            NewIdempotencyKey(),
             null,
             now);
         });
@@ -234,6 +240,7 @@ public class SequentialAllocationStateTests
                 new HoldId(Guid.NewGuid()),
                 new OwnerId("owner-1"),
                 new Quantity(11),
+                NewIdempotencyKey(),
                 requestedTtl: null,
                 DateTimeOffset.Parse("2026-09-20T12:00:00Z")));
 
@@ -260,6 +267,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(6),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -270,6 +278,7 @@ public class SequentialAllocationStateTests
                 new HoldId(Guid.NewGuid()),
                 owner,
                 new Quantity(5),
+                NewIdempotencyKey(),
                 null,
                 now);
         });
@@ -295,6 +304,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -329,6 +339,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -357,6 +368,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -381,6 +393,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -412,6 +425,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -447,6 +461,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -475,6 +490,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -499,6 +515,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -530,6 +547,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(5)),
             now);
 
@@ -560,6 +578,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             owner,
             new Quantity(5),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -591,6 +610,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(5),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -619,6 +639,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(5),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -651,6 +672,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(10),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -661,6 +683,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-2"),
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             later);
 
@@ -687,6 +710,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(2),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -697,6 +721,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-2"),
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             later);
 
@@ -721,6 +746,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(2),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -729,6 +755,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-2"),
             new Quantity(4),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -737,6 +764,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-3"),
             new Quantity(4),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(10)),
             now);
 
@@ -752,6 +780,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-4"),
             new Quantity(5),
+            NewIdempotencyKey(),
             null,
             later);
 
@@ -779,6 +808,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(6),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -787,6 +817,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-2"),
             new Quantity(4),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(10)),
             now);
 
@@ -799,6 +830,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-3"),
             new Quantity(3),
+            NewIdempotencyKey(),
             null,
             later);
 
@@ -824,6 +856,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(3),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -832,6 +865,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-2"),
             new Quantity(7),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(10)),
             now);
 
@@ -843,6 +877,7 @@ public class SequentialAllocationStateTests
                 new HoldId(Guid.NewGuid()),
                 new OwnerId("owner-3"),
                 new Quantity(5),
+                NewIdempotencyKey(),
                 null,
                 later));
 
@@ -873,6 +908,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-a"),
             new Quantity(10),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(10)),
             now);
 
@@ -881,6 +917,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-b"),
             new Quantity(10),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -892,6 +929,7 @@ public class SequentialAllocationStateTests
                 new HoldId(Guid.NewGuid()),
                 new OwnerId("owner-c"),
                 new Quantity(1),
+                NewIdempotencyKey(),
                 null,
                 later));
 
@@ -918,6 +956,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(10),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(10)),
             now);
 
@@ -929,6 +968,7 @@ public class SequentialAllocationStateTests
                 new HoldId(Guid.NewGuid()),
                 new OwnerId("owner-2"),
                 new Quantity(1),
+                NewIdempotencyKey(),
                 null,
                 later));
 
@@ -951,6 +991,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(10),
+            NewIdempotencyKey(),
             new HoldTtl(TimeSpan.FromMinutes(1)),
             now);
 
@@ -964,6 +1005,7 @@ public class SequentialAllocationStateTests
                 new HoldId(Guid.NewGuid()),
                 new OwnerId("owner-2"),
                 new Quantity(1),
+                NewIdempotencyKey(),
                 null,
                 later));
 
@@ -1017,6 +1059,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(8),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -1049,6 +1092,7 @@ public class SequentialAllocationStateTests
                 new HoldId(Guid.NewGuid()),
                 new OwnerId("owner-1"),
                 new Quantity(1),
+                NewIdempotencyKey(),
                 null,
                 now));
     }
@@ -1070,6 +1114,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(1),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -1096,6 +1141,7 @@ public class SequentialAllocationStateTests
                 new HoldId(Guid.NewGuid()),
                 new OwnerId("owner-1"),
                 new Quantity(1),
+                NewIdempotencyKey(),
                 null,
                 now));
     }
@@ -1114,6 +1160,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-1"),
             new Quantity(1),
+            NewIdempotencyKey(),
             null,
             now);
 
@@ -1135,6 +1182,7 @@ public class SequentialAllocationStateTests
             new HoldId(Guid.NewGuid()),
             new OwnerId("owner-2"),
             new Quantity(1),
+            NewIdempotencyKey(),
             null,
             now.AddMinutes(2));
 
@@ -1143,6 +1191,227 @@ public class SequentialAllocationStateTests
 
         Assert.Equal(new PolicyVersion(2), resource.PolicyVersion);
     }
+
+    [Fact]
+    public void Acquire_SameIdempotencyKeyAndSameFingerprint_ShouldReturnSameHoldWithoutReservingAgain()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var ownerId = new OwnerId("owner-1");
+        var idempotencyKey = new IdempotencyKey("operation-1");
+        var firstHoldId = new HoldId(Guid.NewGuid());
+        var retryHoldId = new HoldId(Guid.NewGuid());
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var firstResult = state.Acquire(
+            resource.Id,
+            firstHoldId,
+            ownerId,
+            new Quantity(4),
+            idempotencyKey,
+            requestedTtl: null,
+            now);
+
+        var retryResult = state.Acquire(
+            resource.Id,
+            retryHoldId, // volontairement différent
+            ownerId,
+            new Quantity(4),
+            idempotencyKey,
+            requestedTtl: null,
+            now.AddSeconds(5));
+
+        Assert.Equal(firstHoldId, firstResult.Id);
+        Assert.Equal(firstHoldId, retryResult.Id);
+        Assert.NotEqual(retryHoldId, retryResult.Id);
+        Assert.Equal(new Quantity(4), resource.HeldQuantity);
+        Assert.Equal(new Quantity(6), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_SameIdempotencyKeyAndDifferentQuantity_ThrowsWithoutReservingAgain()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var ownerId = new OwnerId("owner-1");
+        var idempotencyKey = new IdempotencyKey("operation-1");
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            ownerId,
+            new Quantity(4),
+            idempotencyKey,
+            requestedTtl: null,
+            now);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                ownerId,
+                new Quantity(5),
+                idempotencyKey,
+                requestedTtl: null,
+                now.AddSeconds(5)));
+
+        Assert.Equal(new Quantity(4), resource.HeldQuantity);
+        Assert.Equal(new Quantity(6), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_DifferentIdempotencyKeysAndSameFingerprint_CreateDistinctHoldsAndReserveTwice()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var ownerId = new OwnerId("owner-1");
+        var requestedTtl = new HoldTtl(TimeSpan.FromMinutes(5));
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var firstHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            ownerId,
+            new Quantity(4),
+            new IdempotencyKey("operation-1"),
+            requestedTtl,
+            now);
+
+        var secondHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            ownerId,
+            new Quantity(4),
+            new IdempotencyKey("operation-2"),
+            requestedTtl,
+            now.AddSeconds(5));
+
+        Assert.NotEqual(firstHold.Id, secondHold.Id);
+        Assert.Equal(new Quantity(8), resource.HeldQuantity);
+        Assert.Equal(new Quantity(2), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_SameIdempotencyKeyAndDifferentRequestedTtl_ThrowsWithoutReservingAgain()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var ownerId = new OwnerId("owner-1");
+        var idempotencyKey = new IdempotencyKey("operation-1");
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            ownerId,
+            new Quantity(4),
+            idempotencyKey,
+            new HoldTtl(TimeSpan.FromMinutes(5)),
+            now);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                ownerId,
+                new Quantity(4),
+                idempotencyKey,
+                new HoldTtl(TimeSpan.FromMinutes(10)),
+                now.AddSeconds(5)));
+
+        Assert.Equal(new Quantity(4), resource.HeldQuantity);
+        Assert.Equal(new Quantity(6), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_RetryAfterResourceIsClosed_ReturnsOriginalHold()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var ownerId = new OwnerId("owner-1");
+        var idempotencyKey = new IdempotencyKey("operation-1");
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var firstHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            ownerId,
+            new Quantity(4),
+            idempotencyKey,
+            requestedTtl: null,
+            now);
+
+        state.CloseResource(resource.Id, now.AddSeconds(1));
+
+        var retryHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            ownerId,
+            new Quantity(4),
+            idempotencyKey,
+            requestedTtl: null,
+            now.AddSeconds(5));
+
+        Assert.Equal(firstHold.Id, retryHold.Id);
+        Assert.Equal(ResourceStatus.Closed, resource.Status);
+        Assert.Equal(new Quantity(4), resource.HeldQuantity);
+        Assert.Equal(new Quantity(6), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Acquire_ManyRetriesWithSameIdempotencyKey_ReturnOriginalHoldWithoutReservingAgain()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 100);
+        state.AddResource(resource);
+
+        var ownerId = new OwnerId("owner-1");
+        var idempotencyKey = new IdempotencyKey("operation-1");
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var firstHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            ownerId,
+            new Quantity(10),
+            idempotencyKey,
+            requestedTtl: null,
+            now);
+
+        for (var i = 0; i < 100; i++)
+        {
+            var retryHold = state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                ownerId,
+                new Quantity(10),
+                idempotencyKey,
+                requestedTtl: null,
+                now.AddSeconds(i + 1));
+
+            Assert.Equal(firstHold.Id, retryHold.Id);
+        }
+
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+        Assert.Equal(new Quantity(90), resource.AvailableQuantity);
+    }
+
+    private static IdempotencyKey NewIdempotencyKey()
+    {
+        return new IdempotencyKey(Guid.NewGuid().ToString());
+    }
+
     private static Resource CreateResource(
         long capacity = 100,
         long? maxQuantityPerAcquire = 10,
