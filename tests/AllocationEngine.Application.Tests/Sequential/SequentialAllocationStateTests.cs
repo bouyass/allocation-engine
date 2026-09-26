@@ -6,6 +6,7 @@ using AllocationEngine.Domain.Resources;
 using AllocationEngine.Domain.ValueObjects;
 using AllocationEngine.Domain.Resources.Events;
 using AllocationEngine.Domain.Policies.Events;
+using AllocationEngine.Application.Sequential;
 public class SequentialAllocationStateTests
 {
     private readonly SequentialAllocationState _state;
@@ -1833,6 +1834,394 @@ public class SequentialAllocationStateTests
         Assert.Equal(now, domainEvent.OccurredAt);
     }
 
+    [Fact]
+    public void Check_WhenStateIsConsistent_ReturnsNoViolations()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var hold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(5),
+            new IdempotencyKey("acquire-1"),
+            requestedTtl: null,
+            now);
+
+        state.ConfirmHold(
+            hold.Id,
+            now.AddMinutes(1));
+
+        var violations = InvariantChecker.Check(state);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Check_AfterAcquire_ReturnsNoViolations()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(5),
+            new IdempotencyKey("acquire-1"),
+            requestedTtl: null,
+            now);
+
+        var violations = InvariantChecker.Check(state);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Check_AfterConfirm_ReturnsNoViolations()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var hold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(5),
+            new IdempotencyKey("acquire-1"),
+            requestedTtl: null,
+            now);
+
+        state.ConfirmHold(
+            hold.Id,
+            now.AddMinutes(1));
+
+        var violations = InvariantChecker.Check(state);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Check_AfterRelease_ReturnsNoViolations()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var hold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(5),
+            new IdempotencyKey("acquire-1"),
+            requestedTtl: null,
+            now);
+
+        state.ReleaseHold(
+            hold.Id,
+            now.AddMinutes(1));
+
+        var violations = InvariantChecker.Check(state);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Check_AfterReclaim_ReturnsNoViolations()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(5),
+            new IdempotencyKey("acquire-1"),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        state.ReclaimExpiredHolds(
+            now.AddMinutes(2));
+
+        var violations = InvariantChecker.Check(state);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Check_AfterAcquireDrivenReclaim_ReturnsNoViolations()
+    {
+        var state = new SequentialAllocationState();
+
+        var resource = CreateResource(
+            capacity: 10,
+            maxQuantityPerAcquire: null,
+            maxHeldQuantity: null,
+            maxActiveHolds: null);
+
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var oldHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(10),
+            new IdempotencyKey("acquire-old"),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var newHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-2"),
+            new Quantity(10),
+            new IdempotencyKey("acquire-new"),
+            requestedTtl: null,
+            now.AddMinutes(2));
+
+        var violations = InvariantChecker.Check(state);
+
+        Assert.Empty(violations);
+
+        Assert.Equal(HoldStatus.Expired, oldHold.Status);
+        Assert.Equal(HoldStatus.Held, newHold.Status);
+
+        Assert.Equal(
+            new Quantity(10),
+            resource.HeldQuantity);
+
+        Assert.Equal(
+            Quantity.Zero,
+            resource.AllocatedQuantity);
+    }
+
+    [Fact]
+    public void SequentialScenario_MultipleOperations_PreservesGlobalInvariants()
+    {
+        var state = new SequentialAllocationState();
+
+        var resource = CreateResource(
+            capacity: 10,
+            maxQuantityPerAcquire: null,
+            maxHeldQuantity: null,
+            maxActiveHolds: null);
+
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var hold1 = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-A"),
+            new Quantity(4),
+            new IdempotencyKey("acquire-1"),
+            requestedTtl: null,
+            now);
+
+        var hold2 = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-B"),
+            new Quantity(6),
+            new IdempotencyKey("acquire-2"),
+            requestedTtl: null,
+            now);
+
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+        Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
+
+        state.ConfirmHold(
+            hold1.Id,
+            now.AddMinutes(1));
+
+        Assert.Equal(new Quantity(6), resource.HeldQuantity);
+        Assert.Equal(new Quantity(4), resource.AllocatedQuantity);
+
+        state.ReleaseHold(
+            hold2.Id,
+            now.AddMinutes(2));
+
+        Assert.Equal(Quantity.Zero, resource.HeldQuantity);
+        Assert.Equal(new Quantity(4), resource.AllocatedQuantity);
+        Assert.Equal(new Quantity(6), resource.AvailableQuantity);
+
+        var hold3 = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-C"),
+            new Quantity(6),
+            new IdempotencyKey("acquire-3"),
+            requestedTtl: null,
+            now.AddMinutes(3));
+
+        Assert.Equal(HoldStatus.Held, hold3.Status);
+
+        Assert.Equal(new Quantity(10), resource.Capacity);
+        Assert.Equal(new Quantity(6), resource.HeldQuantity);
+        Assert.Equal(new Quantity(4), resource.AllocatedQuantity);
+        Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
+
+        Assert.Empty(InvariantChecker.Check(state));
+    }
+
+    [Fact]
+    public void SequentialScenario_TtlReclaimAndIdempotency_PreservesGlobalInvariants()
+    {
+        var state = new SequentialAllocationState();
+
+        var resource = CreateResource(
+            capacity: 10,
+            maxQuantityPerAcquire: null,
+            maxHeldQuantity: null,
+            maxActiveHolds: null);
+
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        // H1 consumes the entire capacity.
+        var oldHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-A"),
+            new Quantity(10),
+            new IdempotencyKey("acquire-old"),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        Assert.Equal(HoldStatus.Held, oldHold.Status);
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+        Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
+
+        // TTL has elapsed, but nothing has reclaimed H1 yet.
+        var afterExpiration = now.AddMinutes(2);
+
+        Assert.True(oldHold.IsReclaimable(afterExpiration));
+        Assert.Equal(HoldStatus.Held, oldHold.Status);
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+
+        // H2 needs the whole capacity.
+        // Acquire must reclaim H1 before creating H2.
+        var idempotencyKey = new IdempotencyKey("acquire-new");
+
+        var newHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-B"),
+            new Quantity(10),
+            idempotencyKey,
+            requestedTtl: null,
+            afterExpiration);
+
+        Assert.Equal(HoldStatus.Expired, oldHold.Status);
+        Assert.Equal(HoldStatus.Held, newHold.Status);
+
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+        Assert.Equal(Quantity.Zero, resource.AllocatedQuantity);
+        Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
+
+        // Retry the exact same logical Acquire.
+        var retriedHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()), // intentionally different
+            new OwnerId("owner-B"),
+            new Quantity(10),
+            idempotencyKey,
+            requestedTtl: null,
+            afterExpiration.AddSeconds(10));
+
+        Assert.Equal(newHold.Id, retriedHold.Id);
+
+        // Retry must not consume capacity again.
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+        Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
+
+        // And must not emit another HoldCreated.
+        var createdEvents = state.DomainEvents
+            .OfType<HoldCreated>()
+            .ToList();
+
+        Assert.Equal(2, createdEvents.Count); // H1 + H2
+
+        var expiredEvent = Assert.Single(
+            state.DomainEvents.OfType<HoldExpired>());
+
+        Assert.Equal(oldHold.Id, expiredEvent.HoldId);
+
+        // H2 becomes the definitive allocation.
+        state.ConfirmHold(
+            newHold.Id,
+            afterExpiration.AddMinutes(1));
+
+        Assert.Equal(HoldStatus.Confirmed, newHold.Status);
+
+        Assert.Equal(Quantity.Zero, resource.HeldQuantity);
+        Assert.Equal(new Quantity(10), resource.AllocatedQuantity);
+        Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
+
+        // Entire state remains coherent.
+        Assert.Empty(InvariantChecker.Check(state));
+    }
+
+    [Fact]
+    public void Acquire_WhenHoldIdAlreadyExists_DoesNotMutateResource()
+    {
+        var state = new SequentialAllocationState();
+
+        var resource = CreateResource(
+            capacity: 100,
+            maxQuantityPerAcquire: null,
+            maxHeldQuantity: null,
+            maxActiveHolds: null);
+
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+        var holdId = new HoldId(Guid.NewGuid());
+
+        state.Acquire(
+            resource.Id,
+            holdId,
+            new OwnerId("owner-A"),
+            new Quantity(10),
+            new IdempotencyKey("operation-1"),
+            requestedTtl: null,
+            now);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            state.Acquire(
+                resource.Id,
+                holdId, // même HoldId
+                new OwnerId("owner-B"),
+                new Quantity(20),
+                new IdempotencyKey("operation-2"), // nouvelle opération
+                requestedTtl: null,
+                now.AddMinutes(1)));
+
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+        Assert.Equal(new Quantity(90), resource.AvailableQuantity);
+
+        Assert.Empty(InvariantChecker.Check(state));
+    }
     private static Resource CreateResource(
         long capacity = 100,
         long? maxQuantityPerAcquire = 10,

@@ -17,6 +17,12 @@ public sealed class SequentialAllocationState
     private readonly List<IDomainEvent> _domainEvents = [];
     public IReadOnlyList<IDomainEvent> DomainEvents => _domainEvents;
 
+    public IReadOnlyCollection<Resource> Resources =>
+    _resources.Values;
+
+    public IReadOnlyCollection<Hold> Holds =>
+        _holds.Values;
+
     public void AddResource(Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource, nameof(resource));
@@ -87,6 +93,12 @@ public sealed class SequentialAllocationState
             }
 
             return GetHold(existingRecord.HoldId);
+        }
+
+        if (_holds.ContainsKey(holdId))
+        {
+            throw new InvalidOperationException(
+                $"Hold with id {holdId} already exists.");
         }
 
         if (!_resources.TryGetValue(resourceId, out var resource))
