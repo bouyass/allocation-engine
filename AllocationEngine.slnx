@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/AllocationEngine.Api/AllocationEngine.Api.csproj" />
     <Project Path="src/AllocationEngine.Application/AllocationEngine.Application.csproj" />
     <Project Path="src/AllocationEngine.Domain/AllocationEngine.Domain.csproj" />
     <Project Path="src/AllocationEngine.Infrastructure.PostgreSql/AllocationEngine.Infrastructure.PostgreSql.csproj" />
