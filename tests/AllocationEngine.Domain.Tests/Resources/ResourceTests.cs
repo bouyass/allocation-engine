@@ -26,7 +26,6 @@ public class ResourceTests
         var resource = new Resource(
             id,
             capacity,
-            version,
             policies,
             now);
 
@@ -280,7 +279,6 @@ public class ResourceTests
         return new Resource(
             new ResourceId(Guid.NewGuid()),
             new Quantity(100),
-            PolicyVersion.Initial,
             policies,
             new DateTimeOffset(
                 2026, 9, 20,

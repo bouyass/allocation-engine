@@ -21,7 +21,7 @@ public sealed class Resource
 
     public PolicySet Policies { get; private set; }
 
-    public PolicyVersion PolicyVersion { get; private set; }
+    public PolicyVersion PolicyVersion => Policies.Version;
 
     public DateTimeOffset CreatedAt { get; }
 
@@ -30,13 +30,11 @@ public sealed class Resource
     public Resource(
         ResourceId id,
         Quantity capacity,
-        PolicyVersion policyVersion,
         PolicySet policies,
         DateTimeOffset createdAt)
     {
         Id = id;
         Capacity = capacity;
-        PolicyVersion = policyVersion;
         Policies = policies;
 
         HeldQuantity = Quantity.Zero;
@@ -244,9 +242,9 @@ public sealed class Resource
 
         var expectedVersion = Policies.Version.Next();
 
-        if (Policies.Version != expectedVersion)
+        if (policies.Version != expectedVersion)
         {
-            throw new InvalidOperationException($"Policy version must {expectedVersion}, but was {Policies.Version}");
+            throw new InvalidOperationException($"Policy version must be {expectedVersion}, but was {Policies.Version}");
         }
 
         Policies = policies;

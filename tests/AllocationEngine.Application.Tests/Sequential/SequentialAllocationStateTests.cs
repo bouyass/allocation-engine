@@ -24,7 +24,7 @@ public class SequentialAllocationStateTests
             new HoldPolicy(new HoldTtl(TimeSpan.FromMinutes(1)), new HoldTtl(TimeSpan.FromSeconds(30)), new HoldTtl(TimeSpan.FromMinutes(5)))
         );
 
-        var resource = new Resource(new ResourceId(Guid.NewGuid()), new Quantity(100), new PolicyVersion(1), policies, DateTimeOffset.UtcNow);
+        var resource = new Resource(new ResourceId(Guid.NewGuid()), new Quantity(100), policies, DateTimeOffset.UtcNow);
 
         // Act
         _state.AddResource(resource);
@@ -45,7 +45,7 @@ public class SequentialAllocationStateTests
             new HoldPolicy(new HoldTtl(TimeSpan.FromMinutes(1)), new HoldTtl(TimeSpan.FromSeconds(30)), new HoldTtl(TimeSpan.FromMinutes(5)))
         );
 
-        var resource = new Resource(new ResourceId(Guid.NewGuid()), new Quantity(100), new PolicyVersion(1), policies, DateTimeOffset.UtcNow);
+        var resource = new Resource(new ResourceId(Guid.NewGuid()), new Quantity(100), policies, DateTimeOffset.UtcNow);
         _state.AddResource(resource);
 
         // Act
@@ -67,7 +67,7 @@ public class SequentialAllocationStateTests
             new HoldPolicy(new HoldTtl(TimeSpan.FromMinutes(1)), new HoldTtl(TimeSpan.FromSeconds(30)), new HoldTtl(TimeSpan.FromMinutes(5)))
         );
 
-        var resource = new Resource(new ResourceId(Guid.NewGuid()), new Quantity(100), new PolicyVersion(1), policies, DateTimeOffset.UtcNow);
+        var resource = new Resource(new ResourceId(Guid.NewGuid()), new Quantity(100), policies, DateTimeOffset.UtcNow);
         _state.AddResource(resource);
 
         // Act & Assert
@@ -1168,7 +1168,6 @@ public class SequentialAllocationStateTests
         return new Resource(
             new ResourceId(Guid.NewGuid()),
             new Quantity(capacity),
-            PolicyVersion.Initial,
             policies,
             DateTimeOffset.Parse("2026-09-20T12:00:00Z"));
     }
