@@ -1,7 +1,11 @@
 using AllocationEngine.Domain.Errors;
+using AllocationEngine.Domain.Events;
 using AllocationEngine.Domain.Holds;
+using AllocationEngine.Domain.Holds.Events;
 using AllocationEngine.Domain.Policies;
+using AllocationEngine.Domain.Policies.Events;
 using AllocationEngine.Domain.Resources;
+using AllocationEngine.Domain.Resources.Events;
 using AllocationEngine.Domain.ValueObjects;
 
 public sealed class SequentialAllocationState
@@ -10,6 +14,8 @@ public sealed class SequentialAllocationState
     private readonly Dictionary<HoldId, Hold> _holds = [];
 
     private readonly Dictionary<IdempotencyKey, AcquireIdempotencyRecord> _acquireOperations = [];
+    private readonly List<IDomainEvent> _domainEvents = [];
+    public IReadOnlyList<IDomainEvent> DomainEvents => _domainEvents;
 
     public void AddResource(Resource resource)
     {
@@ -131,7 +137,20 @@ public sealed class SequentialAllocationState
 
         AddHold(hold);
 
-        _acquireOperations.Add(idempotencyKey, new(idempotencyKey, fingerprint, holdId));
+        _acquireOperations.Add(
+            idempotencyKey,
+            new(idempotencyKey,
+            fingerprint,
+            holdId));
+
+        _domainEvents.Add(
+            new HoldCreated(
+                hold.Id,
+                hold.ResourceId,
+                hold.OwnerId,
+                hold.Quantity,
+                now));
+
         return hold;
     }
 
@@ -156,6 +175,14 @@ public sealed class SequentialAllocationState
         {
             hold.Confirm();
             resource.ConfirmReservation(hold.Quantity, now);
+            _domainEvents.Add(
+            new HoldConfirmed(
+                hold.Id,
+                hold.ResourceId,
+                hold.OwnerId,
+                hold.Quantity,
+                now));
+
             return;
         }
 
@@ -181,21 +208,30 @@ public sealed class SequentialAllocationState
 
         hold.Release();
         resource.ReleaseReservation(hold.Quantity, now);
+        _domainEvents.Add(
+            new HoldReleased(
+                hold.Id,
+                hold.ResourceId,
+                hold.OwnerId,
+                hold.Quantity,
+                now));
     }
 
     public void ReclaimExpiredHolds(DateTimeOffset now)
     {
-        var expiredHolds = _holds.Values.Where(h => h.IsReclaimable(now)).ToList();
+        var expiredHolds = _holds.Values
+            .Where(h => h.IsReclaimable(now))
+            .ToList();
 
         foreach (var hold in expiredHolds)
         {
             if (!_resources.TryGetValue(hold.ResourceId, out var resource))
             {
-                throw new KeyNotFoundException($"Resource with id {hold.ResourceId} not found.");
+                throw new KeyNotFoundException(
+                    $"Resource with id {hold.ResourceId} not found.");
             }
 
-            hold.Reclaim(now);
-            resource.ReleaseReservation(hold.Quantity, now);
+            ReclaimHold(hold, resource, now);
         }
     }
 
@@ -206,6 +242,13 @@ public sealed class SequentialAllocationState
     {
         var resource = GetResource(resourceId);
         resource.AddCapacity(quantity, now);
+
+        _domainEvents.Add(
+        new CapacityAdded(
+            resource.Id,
+            quantity,
+            resource.Capacity,
+            now));
     }
 
     public void RemoveCapacity(
@@ -215,6 +258,13 @@ public sealed class SequentialAllocationState
     {
         var resource = GetResource(resourceId);
         resource.RemoveCapacity(quantity, now);
+
+        _domainEvents.Add(
+        new CapacityRemoved(
+            resource.Id,
+            quantity,
+            resource.Capacity,
+            now));
     }
 
     public void PauseResource(
@@ -222,7 +272,17 @@ public sealed class SequentialAllocationState
         DateTimeOffset now)
     {
         var resource = GetResource(resourceId);
+
+        if (resource.Status == ResourceStatus.Paused)
+        {
+            return;
+        }
+
         resource.Pause(now);
+        _domainEvents.Add(
+        new ResourcePaused(
+            resource.Id,
+            now));
     }
 
     public void ResumeResource(
@@ -230,7 +290,18 @@ public sealed class SequentialAllocationState
         DateTimeOffset now)
     {
         var resource = GetResource(resourceId);
+
+        if (resource.Status == ResourceStatus.Active)
+        {
+            return;
+        }
+
         resource.Resume(now);
+
+        _domainEvents.Add(
+        new ResourceResumed(
+            resource.Id,
+            now));
     }
 
     public void CloseResource(
@@ -238,12 +309,31 @@ public sealed class SequentialAllocationState
         DateTimeOffset now)
     {
         var resource = GetResource(resourceId);
+
+        if (resource.Status == ResourceStatus.Closed)
+        {
+            return;
+        }
+
         resource.Close(now);
+
+        _domainEvents.Add(
+        new ResourceClosed(
+            resource.Id,
+            now));
     }
 
     public void UpdateResourcePolicies(ResourceId resourceId, PolicySet policies, DateTimeOffset now)
     {
-        GetResource(resourceId).UpdatePolicies(policies, now);
+        var resource = GetResource(resourceId);
+        var previousVersion = resource.PolicyVersion;
+        resource.UpdatePolicies(policies, now);
+        _domainEvents.Add(
+        new PolicySetUpdated(
+            resource.Id,
+            previousVersion,
+            resource.PolicyVersion,
+            now));
     }
 
     private void ReclaimCapacityForAcquire(ResourceId resourceId, ref Quantity quantityMissing, DateTimeOffset now)
@@ -266,8 +356,7 @@ public sealed class SequentialAllocationState
                 throw new KeyNotFoundException($"Resource with id {hold.ResourceId} not found.");
             }
 
-            hold.Reclaim(now);
-            resource.ReclaimReservation(hold.Quantity, now);
+            ReclaimHold(hold, resource, now);
 
             if (hold.Quantity >= quantityMissing)
             {
@@ -296,5 +385,21 @@ public sealed class SequentialAllocationState
         return (heldQuantity, activeHoldCount);
     }
 
+    private void ReclaimHold(
+        Hold hold,
+        Resource resource,
+        DateTimeOffset now)
+    {
+        hold.Reclaim(now);
+        resource.ReclaimReservation(hold.Quantity, now);
+
+        _domainEvents.Add(
+            new HoldExpired(
+                hold.Id,
+                hold.ResourceId,
+                hold.OwnerId,
+                hold.Quantity,
+                now));
+    }
 }
 

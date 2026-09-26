@@ -1,9 +1,11 @@
 using AllocationEngine.Domain.Errors;
 using AllocationEngine.Domain.Holds;
+using AllocationEngine.Domain.Holds.Events;
 using AllocationEngine.Domain.Policies;
 using AllocationEngine.Domain.Resources;
 using AllocationEngine.Domain.ValueObjects;
-
+using AllocationEngine.Domain.Resources.Events;
+using AllocationEngine.Domain.Policies.Events;
 public class SequentialAllocationStateTests
 {
     private readonly SequentialAllocationState _state;
@@ -1407,9 +1409,428 @@ public class SequentialAllocationStateTests
         Assert.Equal(new Quantity(90), resource.AvailableQuantity);
     }
 
+    [Fact]
+    public void Acquire_WhenRetriedWithSameIdempotencyKey_EmitsHoldCreatedOnlyOnce()
+    {
+        // Arrange
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 100);
+        state.AddResource(resource);
+
+        var ownerId = new OwnerId("owner-1");
+        var idempotencyKey = new IdempotencyKey("operation-1");
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        // Act
+        var originalHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            ownerId,
+            new Quantity(10),
+            idempotencyKey,
+            requestedTtl: null,
+            now);
+
+        for (var i = 0; i < 100; i++)
+        {
+            state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                ownerId,
+                new Quantity(10),
+                idempotencyKey,
+                requestedTtl: null,
+                now.AddSeconds(i + 1));
+        }
+
+        // Assert
+        var holdCreatedEvents = state.DomainEvents
+            .OfType<HoldCreated>()
+            .ToList();
+
+        var holdCreated = Assert.Single(holdCreatedEvents);
+
+        Assert.Equal(originalHold.Id, holdCreated.HoldId);
+        Assert.Equal(resource.Id, holdCreated.ResourceId);
+        Assert.Equal(ownerId, holdCreated.OwnerId);
+        Assert.Equal(new Quantity(10), holdCreated.Quantity);
+
+        Assert.Equal(new Quantity(10), resource.HeldQuantity);
+    }
+
+    [Fact]
+    public void Acquire_WhenSuccessful_EmitsHoldCreated()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var ownerId = new OwnerId("owner-1");
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var hold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            ownerId,
+            new Quantity(5),
+            new IdempotencyKey("acquire-1"),
+            requestedTtl: null,
+            now);
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<HoldCreated>());
+
+        Assert.Equal(hold.Id, domainEvent.HoldId);
+        Assert.Equal(resource.Id, domainEvent.ResourceId);
+        Assert.Equal(ownerId, domainEvent.OwnerId);
+        Assert.Equal(new Quantity(5), domainEvent.Quantity);
+        Assert.Equal(now, domainEvent.OccurredAt);
+    }
+
+    [Fact]
+    public void ConfirmHold_WhenCalledTwice_EmitsHoldConfirmedOnlyOnce()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var hold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(5),
+            new IdempotencyKey("acquire-1"),
+            requestedTtl: null,
+            now);
+
+        state.ConfirmHold(hold.Id, now.AddSeconds(1));
+        state.ConfirmHold(hold.Id, now.AddSeconds(2));
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<HoldConfirmed>());
+
+        Assert.Equal(hold.Id, domainEvent.HoldId);
+        Assert.Equal(new Quantity(5), domainEvent.Quantity);
+        Assert.Equal(now.AddSeconds(1), domainEvent.OccurredAt);
+    }
+
+    [Fact]
+    public void ReleaseHold_WhenCalledTwice_EmitsHoldReleasedOnlyOnce()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var hold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(5),
+            new IdempotencyKey("acquire-1"),
+            requestedTtl: null,
+            now);
+
+        state.ReleaseHold(hold.Id, now.AddSeconds(1));
+        state.ReleaseHold(hold.Id, now.AddSeconds(2));
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<HoldReleased>());
+
+        Assert.Equal(hold.Id, domainEvent.HoldId);
+        Assert.Equal(now.AddSeconds(1), domainEvent.OccurredAt);
+    }
+
+    [Fact]
+    public void ReclaimExpiredHolds_WhenHoldIsExpired_EmitsHoldExpired()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var hold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(5),
+            new IdempotencyKey("acquire-1"),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var reclaimAt = now.AddMinutes(2);
+
+        state.ReclaimExpiredHolds(reclaimAt);
+        state.ReclaimExpiredHolds(reclaimAt.AddMinutes(1));
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<HoldExpired>());
+
+        Assert.Equal(hold.Id, domainEvent.HoldId);
+        Assert.Equal(resource.Id, domainEvent.ResourceId);
+        Assert.Equal(reclaimAt, domainEvent.OccurredAt);
+    }
+
     private static IdempotencyKey NewIdempotencyKey()
     {
         return new IdempotencyKey(Guid.NewGuid().ToString());
+    }
+
+    [Fact]
+    public void Acquire_WhenReclaimIsNeeded_EmitsHoldExpiredBeforeHoldCreated()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(
+            capacity: 10,
+            maxQuantityPerAcquire: null,
+            maxHeldQuantity: null,
+            maxActiveHolds: null);
+
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var expiredHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(10),
+            new IdempotencyKey("acquire-old"),
+            new HoldTtl(TimeSpan.FromMinutes(1)),
+            now);
+
+        var newHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-2"),
+            new Quantity(10),
+            new IdempotencyKey("acquire-new"),
+            requestedTtl: null,
+            now.AddMinutes(2));
+
+        var expiredEvents = state.DomainEvents
+            .OfType<HoldExpired>()
+            .ToList();
+
+        var createdEvents = state.DomainEvents
+            .OfType<HoldCreated>()
+            .ToList();
+
+        Assert.Single(expiredEvents);
+        Assert.Equal(expiredHold.Id, expiredEvents[0].HoldId);
+
+        Assert.Equal(2, createdEvents.Count);
+        Assert.Equal(newHold.Id, createdEvents[1].HoldId);
+
+        var expiredIndex = state.DomainEvents
+            .ToList()
+            .FindIndex(e => e is HoldExpired);
+
+        var newHoldCreatedIndex = state.DomainEvents
+            .ToList()
+            .FindLastIndex(e => e is HoldCreated);
+
+        Assert.True(expiredIndex < newHoldCreatedIndex);
+    }
+
+    [Fact]
+    public void PauseResource_WhenCalledTwice_EmitsResourcePausedOnlyOnce()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.PauseResource(resource.Id, now);
+        state.PauseResource(resource.Id, now.AddMinutes(1));
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<ResourcePaused>());
+
+        Assert.Equal(resource.Id, domainEvent.ResourceId);
+        Assert.Equal(now, domainEvent.OccurredAt);
+    }
+
+    [Fact]
+    public void AddCapacity_WhenSuccessful_EmitsCapacityAdded()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 100);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.AddCapacity(
+            resource.Id,
+            new Quantity(50),
+            now);
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<CapacityAdded>());
+
+        Assert.Equal(resource.Id, domainEvent.ResourceId);
+        Assert.Equal(new Quantity(50), domainEvent.Quantity);
+        Assert.Equal(new Quantity(150), domainEvent.NewCapacity);
+        Assert.Equal(now, domainEvent.OccurredAt);
+    }
+
+    [Fact]
+    public void Acquire_WhenRejected_DoesNotEmitHoldCreated()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 5);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        Assert.Throws<InsufficientCapacityException>(() =>
+            state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                new OwnerId("owner-1"),
+                new Quantity(10),
+                new IdempotencyKey("acquire-1"),
+                requestedTtl: null,
+                now));
+
+        Assert.Empty(state.DomainEvents.OfType<HoldCreated>());
+    }
+
+    [Fact]
+    public void ResumeResource_WhenCalledTwice_EmitsResourceResumedOnlyOnce()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.PauseResource(resource.Id, now);
+        state.ResumeResource(resource.Id, now.AddMinutes(1));
+        state.ResumeResource(resource.Id, now.AddMinutes(2));
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<ResourceResumed>());
+
+        Assert.Equal(resource.Id, domainEvent.ResourceId);
+        Assert.Equal(now.AddMinutes(1), domainEvent.OccurredAt);
+    }
+
+    [Fact]
+    public void CloseResource_WhenCalledTwice_EmitsResourceClosedOnlyOnce()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.CloseResource(resource.Id, now);
+        state.CloseResource(resource.Id, now.AddMinutes(1));
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<ResourceClosed>());
+
+        Assert.Equal(resource.Id, domainEvent.ResourceId);
+        Assert.Equal(now, domainEvent.OccurredAt);
+    }
+
+    [Fact]
+    public void RemoveCapacity_WhenSuccessful_EmitsCapacityRemoved()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 100);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.RemoveCapacity(
+            resource.Id,
+            new Quantity(30),
+            now);
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<CapacityRemoved>());
+
+        Assert.Equal(resource.Id, domainEvent.ResourceId);
+        Assert.Equal(new Quantity(30), domainEvent.Quantity);
+        Assert.Equal(new Quantity(70), domainEvent.NewCapacity);
+        Assert.Equal(now, domainEvent.OccurredAt);
+    }
+
+    [Fact]
+    public void RemoveCapacity_WhenRejected_DoesNotEmitCapacityRemoved()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(
+            capacity: 10,
+            maxQuantityPerAcquire: null);
+
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(8),
+            new IdempotencyKey("acquire-1"),
+            requestedTtl: null,
+            now);
+
+        Assert.Throws<CapacityBelowCommittedException>(() =>
+            state.RemoveCapacity(
+                resource.Id,
+                new Quantity(5),
+                now.AddMinutes(1)));
+
+        Assert.Empty(
+            state.DomainEvents.OfType<CapacityRemoved>());
+
+        Assert.Equal(new Quantity(10), resource.Capacity);
+    }
+
+    [Fact]
+    public void UpdateResourcePolicies_WhenSuccessful_EmitsPolicySetUpdated()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var previousVersion = resource.PolicyVersion;
+        var newVersion = previousVersion.Next();
+
+        var newPolicies = new PolicySet(
+            newVersion,
+            new RequestPolicy(new Quantity(20)),
+            new OwnerPolicy(
+                new Quantity(30),
+                maxActiveHolds: 5),
+            new HoldPolicy(
+                new HoldTtl(TimeSpan.FromMinutes(10)),
+                new HoldTtl(TimeSpan.FromMinutes(1)),
+                new HoldTtl(TimeSpan.FromMinutes(30))));
+
+        state.UpdateResourcePolicies(
+            resource.Id,
+            newPolicies,
+            now);
+
+        var domainEvent = Assert.Single(
+            state.DomainEvents.OfType<PolicySetUpdated>());
+
+        Assert.Equal(resource.Id, domainEvent.ResourceId);
+        Assert.Equal(previousVersion, domainEvent.PreviousVersion);
+        Assert.Equal(newVersion, domainEvent.NewVersion);
+        Assert.Equal(now, domainEvent.OccurredAt);
     }
 
     private static Resource CreateResource(
