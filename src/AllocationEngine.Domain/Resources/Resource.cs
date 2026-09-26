@@ -232,6 +232,27 @@ public sealed class Resource
         UpdatedAt = now;
     }
 
+
+    public void UpdatePolicies(PolicySet policies, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(policies);
+
+        if (Status == ResourceStatus.Closed)
+        {
+            throw new InvalidResourceTransitionException(Status, nameof(UpdatePolicies));
+        }
+
+        var expectedVersion = Policies.Version.Next();
+
+        if (Policies.Version != expectedVersion)
+        {
+            throw new InvalidOperationException($"Policy version must {expectedVersion}, but was {Policies.Version}");
+        }
+
+        Policies = policies;
+        UpdatedAt = now;
+    }
+
     private void EnsurePositiveQuantity(
         Quantity quantity,
         string parameterName)
@@ -243,4 +264,5 @@ public sealed class Resource
                 "Quantity must be greater than zero.");
         }
     }
+
 }

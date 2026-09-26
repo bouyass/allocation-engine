@@ -973,6 +973,176 @@ public class SequentialAllocationStateTests
         Assert.Equal(Quantity.Zero, resource.AvailableQuantity);
     }
 
+    [Fact]
+    public void AddCapacity_IncreasesResourceCapacity()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.AddCapacity(resource.Id, new Quantity(5), now);
+
+        Assert.Equal(new Quantity(15), resource.Capacity);
+        Assert.Equal(new Quantity(15), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void RemoveCapacity_DecreasesResourceCapacity()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.RemoveCapacity(resource.Id, new Quantity(4), now);
+
+        Assert.Equal(new Quantity(6), resource.Capacity);
+        Assert.Equal(new Quantity(6), resource.AvailableQuantity);
+    }
+
+    [Fact]
+    public void RemoveCapacity_WhenCapacityWouldFallBelowHeldQuantity_Throws()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource(capacity: 10);
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(8),
+            null,
+            now);
+
+        Assert.Throws<CapacityBelowCommittedException>(() =>
+            state.RemoveCapacity(
+                resource.Id,
+                new Quantity(3),
+                now));
+
+        Assert.Equal(new Quantity(10), resource.Capacity);
+        Assert.Equal(new Quantity(8), resource.HeldQuantity);
+    }
+
+    [Fact]
+    public void PauseResource_PreventsNewAcquire()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.PauseResource(resource.Id, now);
+
+        Assert.Equal(ResourceStatus.Paused, resource.Status);
+
+        Assert.Throws<InvalidResourceTransitionException>(() =>
+            state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                new OwnerId("owner-1"),
+                new Quantity(1),
+                null,
+                now));
+    }
+
+    [Fact]
+    public void ResumeResource_AllowsAcquireAgain()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.PauseResource(resource.Id, now);
+        state.ResumeResource(resource.Id, now);
+
+        var hold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(1),
+            null,
+            now);
+
+        Assert.Equal(ResourceStatus.Active, resource.Status);
+        Assert.Equal(HoldStatus.Held, hold.Status);
+    }
+
+    [Fact]
+    public void CloseResource_PreventsNewAcquire()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        state.CloseResource(resource.Id, now);
+
+        Assert.Equal(ResourceStatus.Closed, resource.Status);
+
+        Assert.Throws<InvalidResourceTransitionException>(() =>
+            state.Acquire(
+                resource.Id,
+                new HoldId(Guid.NewGuid()),
+                new OwnerId("owner-1"),
+                new Quantity(1),
+                null,
+                now));
+    }
+
+    [Fact]
+    public void UpdateResourcePolicies_NewAcquireUsesNewVersionWhileExistingHoldKeepsOldVersion()
+    {
+        var state = new SequentialAllocationState();
+        var resource = CreateResource();
+        state.AddResource(resource);
+
+        var now = DateTimeOffset.Parse("2026-09-20T12:00:00Z");
+
+        var firstHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-1"),
+            new Quantity(1),
+            null,
+            now);
+
+        Assert.Equal(new PolicyVersion(1), firstHold.PolicyVersion);
+
+        var newPolicies = new PolicySet(
+            new PolicyVersion(2),
+            resource.Policies.Request,
+            resource.Policies.Owner,
+            resource.Policies.Hold);
+
+        state.UpdateResourcePolicies(
+            resource.Id,
+            newPolicies,
+            now.AddMinutes(1));
+
+        var secondHold = state.Acquire(
+            resource.Id,
+            new HoldId(Guid.NewGuid()),
+            new OwnerId("owner-2"),
+            new Quantity(1),
+            null,
+            now.AddMinutes(2));
+
+        Assert.Equal(new PolicyVersion(1), firstHold.PolicyVersion);
+        Assert.Equal(new PolicyVersion(2), secondHold.PolicyVersion);
+
+        Assert.Equal(new PolicyVersion(2), resource.PolicyVersion);
+    }
     private static Resource CreateResource(
         long capacity = 100,
         long? maxQuantityPerAcquire = 10,

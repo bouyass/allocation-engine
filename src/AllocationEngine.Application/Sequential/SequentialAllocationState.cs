@@ -173,6 +173,53 @@ public sealed class SequentialAllocationState
         }
     }
 
+    public void AddCapacity(
+        ResourceId resourceId,
+        Quantity quantity,
+        DateTimeOffset now)
+    {
+        var resource = GetResource(resourceId);
+        resource.AddCapacity(quantity, now);
+    }
+
+    public void RemoveCapacity(
+        ResourceId resourceId,
+        Quantity quantity,
+        DateTimeOffset now)
+    {
+        var resource = GetResource(resourceId);
+        resource.RemoveCapacity(quantity, now);
+    }
+
+    public void PauseResource(
+        ResourceId resourceId,
+        DateTimeOffset now)
+    {
+        var resource = GetResource(resourceId);
+        resource.Pause(now);
+    }
+
+    public void ResumeResource(
+        ResourceId resourceId,
+        DateTimeOffset now)
+    {
+        var resource = GetResource(resourceId);
+        resource.Resume(now);
+    }
+
+    public void CloseResource(
+        ResourceId resourceId,
+        DateTimeOffset now)
+    {
+        var resource = GetResource(resourceId);
+        resource.Close(now);
+    }
+
+    public void UpdateResourcePolicies(ResourceId resourceId, PolicySet policies, DateTimeOffset now)
+    {
+        GetResource(resourceId).UpdatePolicies(policies, now);
+    }
+
     private void ReclaimCapacityForAcquire(ResourceId resourceId, ref Quantity quantityMissing, DateTimeOffset now)
     {
         var reclaimableHolds = _holds.Values
